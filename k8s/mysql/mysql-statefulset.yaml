@@ -1,0 +1,68 @@
+# 1. Service ClusterIP: Cung cấp DNS cố định "ttnt-mysql" cho backend kết nối
+apiVersion: v1
+kind: Service
+# Định nghĩa một Kubernetes Service loại ClusterIP.
+metadata:
+  name: ttnt-mysql # Giữ nguyên tên này để backend có thể kết nối
+spec:
+  selector:
+    app: ttnt-mysql # Trỏ đến các Pod do StatefulSet quản lý
+  ports:
+    - port: 3306
+---
+# 2. Headless Service: Bắt buộc cho StatefulSet để cung cấp định danh mạng ổn định cho từng Pod
+apiVersion: v1
+kind: Service
+# Định nghĩa một Kubernetes Service loại Headless.
+metadata:
+  name: mysql-headless
+spec:
+  ports:
+  - port: 3306
+  clusterIP: None   # Đây là Headless Service
+  selector:
+    app: ttnt-mysql # Trỏ đến các Pod do StatefulSet quản lý
+---
+# 3. StatefulSet: Quản lý Pod MySQL và dữ liệu bền vững
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ttnt-mysql
+spec:
+  selector:
+    matchLabels:
+      app: ttnt-mysql
+  serviceName: "mysql-headless" # Liên kết với Headless Service
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: ttnt-mysql # Label để các Service có thể selector
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom: # Lấy mật khẩu từ Secret
+            secretKeyRef:
+              name: mysql-secret
+              key: ROOT_PASSWORD
+        - name: MYSQL_DATABASE # Tự động tạo database 'ttnt' khi khởi động
+          value: "ttnt"
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        # mysql-data: Tên của PersistentVolumeClaim được định nghĩa bên dưới.
+        - name: mysql-data
+          mountPath: /var/lib/mysql # Đường dẫn trong container nơi dữ liệu MySQL sẽ được lưu trữ.
+  # Tự động yêu cầu cấp phát ổ cứng (PersistentVolumeClaim) cho mỗi Pod
+  # volumeClaimTemplates đảm bảo mỗi replica của StatefulSet có một PersistentVolume độc lập và bền vững.
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi # Yêu cầu cấp phát 1GB dung lượng lưu trữ.

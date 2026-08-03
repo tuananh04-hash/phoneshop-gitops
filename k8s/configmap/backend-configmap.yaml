@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-configmap
+data:
+  DB_HOST: "ttnt-mysql" # Trỏ đến tên của MySQL Service sẽ tạo ở bước sau
+  DB_NAME: "ttnt"
