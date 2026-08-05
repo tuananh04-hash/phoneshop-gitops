@@ -54,3 +54,7 @@ spec:
               port: 3000
             initialDelaySeconds: 5 # Chờ 5 giây sau khi container khởi động mới bắt đầu kiểm tra
             periodSeconds: 5
+---
+# 1. Service ClusterIP: Cung cấp DNS cố định "ttnt-mysql" cho backend kết nối
+apiVersion: v1
+kind: Service
