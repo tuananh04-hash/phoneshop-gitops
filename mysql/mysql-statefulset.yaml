@@ -61,7 +61,7 @@ spec:
               mountPath: /backups # Mount thư mục chia sẻ với sidecar
 
         # Container phụ (sidecar) để thực hiện tác vụ backup tự động.
-        # 2. CONTAINER SIDECAR: Tự động Backup
+        # 2. CONTAINER SIDECAR: Tự động Backup test
         - name: backup-sidecar
           image: mysql:8.0
           env:
