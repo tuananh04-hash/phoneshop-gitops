@@ -74,7 +74,7 @@ backend:
       memory: "256Mi"
   # Cấu hình "bác sĩ": K8s sẽ gõ cửa 2 đường dẫn này để biết Pod còn sống/sẵn sàng hay không
   livenessProbe:
-    path: /duong-dan-loi   #/healthz/live
+    path: /healthz/live
   readinessProbe:
     path: /healthz/ready
 
