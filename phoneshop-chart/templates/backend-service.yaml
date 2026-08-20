@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+# Định nghĩa một Kubernetes Service loại ClusterIP cho ứng dụng backend.
+metadata:
+  name: ttnt-backend # Tên DNS cố định cho frontend kết nối vào
+spec:
+  selector:
+    app: ttnt-backend # Service này sẽ định tuyến traffic đến các Pod có label 'app: ttnt-backend'.
+  ports:
+    - port: 3000
+      # targetPort mặc định sẽ là cùng giá trị với port nếu không được chỉ định,
+      # tức là traffic đến cổng 3000 của Service sẽ được chuyển đến cổng 3000 của Pod.

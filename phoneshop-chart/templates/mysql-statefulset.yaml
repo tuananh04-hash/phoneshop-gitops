@@ -1,0 +1,106 @@
+# 1. Service ClusterIP: Cung cấp DNS cố định "ttnt-mysql" cho backend kết nối
+apiVersion: v1
+kind: Service
+# Định nghĩa một Kubernetes Service loại ClusterIP.
+metadata:
+  name: ttnt-mysql # Giữ nguyên tên này để backend có thể kết nối
+spec:
+  selector:
+    app: ttnt-mysql # Trỏ đến các Pod do StatefulSet quản lý
+  ports:
+    - port: 3306
+---
+# 2. Headless Service: Bắt buộc cho StatefulSet để cung cấp định danh mạng ổn định cho từng Pod
+apiVersion: v1
+kind: Service
+# Định nghĩa một Kubernetes Service loại Headless.
+metadata:
+  name: mysql-headless
+spec:
+  ports:
+  - port: 3306
+  clusterIP: None   # Đây là Headless Service
+  selector:
+    app: ttnt-mysql # Trỏ đến các Pod do StatefulSet quản lý
+---
+# 3. StatefulSet: Quản lý Pod MySQL và dữ liệu bền vững
+apiVersion: apps/v1
+kind: StatefulSet
+# Định nghĩa một Kubernetes StatefulSet để quản lý các Pod MySQL.
+metadata:
+  name: ttnt-mysql
+spec:
+  serviceName: "mysql-headless" # Liên kết với Headless Service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ttnt-mysql
+  template:
+    metadata:
+      labels:
+        app: ttnt-mysql # Label để các Service có thể selector
+    spec:
+      containers:
+        # 1. CONTAINER CHÍNH: MySQL Server
+        - name: mysql
+          # Lấy thông tin image từ file values.yaml, giúp dễ dàng nâng cấp phiên bản MySQL.
+          image: "{{ .Values.mysql.image.repository }}:{{ .Values.mysql.image.tag }}"
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom: # Lấy mật khẩu từ Secret
+                secretKeyRef:
+                  name: mysql-secret
+                  key: ROOT_PASSWORD
+            - name: MYSQL_DATABASE # Biến môi trường để MySQL tự động tạo database 'ttnt' khi khởi động.
+              value: "ttnt"
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql # Mount ổ cứng cho dữ liệu MySQL
+            - name: backup-storage
+              mountPath: /backups # Mount thư mục chia sẻ với sidecar
+
+        # Container phụ (sidecar) để thực hiện tác vụ backup tự động.
+        # 2. CONTAINER SIDECAR: Tự động Backup test
+        - name: backup-sidecar
+          # Sử dụng cùng một image với container chính để đảm bảo tính tương thích của công cụ (mysqldump).
+          image: "{{ .Values.mysql.image.repository }}:{{ .Values.mysql.image.tag }}"
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom: # Lấy mật khẩu từ Secret
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+          command:
+            - /bin/sh
+            - -c
+            - | # Script shell để thực hiện backup.
+              echo "Khởi động Sidecar Backup MySQL..."
+              # Chờ 30 giây để đảm bảo container mysql chính đã khởi động xong
+              echo "Đang chờ MySQL Server sẵn sàng (30s)..."
+              sleep 30
+
+              # Vòng lặp vô hạn để chạy cron thủ công
+              while true; do # Vòng lặp để thực hiện backup định kỳ.
+                DATE=$(date +%Y%m%d_%H%M%S)
+                echo "[$(date)] Đang kết xuất dữ liệu sang /backups/ttnt_backup_$DATE.sql ..."
+                mysqldump -h 127.0.0.1 -u root -p"$MYSQL_ROOT_PASSWORD" ttnt > /backups/ttnt_backup_$DATE.sql
+                echo "[$(date)] Backup thành công! Tạm nghỉ 60 giây (test)..."
+                sleep 60 # Nghỉ 60 giây cho mục đích test (Thực tế thường để 3600s - 1 giờ)
+              done
+          volumeMounts:
+            - name: backup-storage
+              mountPath: /backups # Mount chung thư mục để lưu file backup
+      volumes:
+        - name: backup-storage
+          emptyDir: {} # Ổ cứng tạm dùng để chia sẻ file giữa 2 container
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            # Lấy dung lượng lưu trữ từ file values.yaml, cho phép tùy chỉnh theo môi trường.
+            storage: {{ .Values.mysql.persistence.size }}

@@ -1,0 +1,257 @@
+# Default values for phoneshop-chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# -- replicaCount --
+# Tác dụng: Thiết lập số lượng bản sao (Pod) mặc định sẽ được tạo.
+# Truyền vào: /home/tuananh/phoneshop-gitops/phoneshop-chart/templates/backend-deployment.yaml
+# Được sử dụng khi HPA (autoscaling) bị tắt.
+replicaCount: 1
+
+# -- image --
+# Tác dụng: Cấu hình image mặc định cho chart.
+# Truyền vào: Không được sử dụng trong chart này vì 'backend' và 'mysql' có khối image riêng.
+image:
+  repository: nginx
+  # Tác dụng: Thiết lập chính sách kéo image (ví dụ: IfNotPresent, Always, Never).
+  pullPolicy: IfNotPresent
+  # Tác dụng: Ghi đè tag của image. Nếu để trống, mặc định sẽ là phiên bản của chart (appVersion).
+  tag: ""
+
+# This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+imagePullSecrets: []
+# This is to override the chart name.
+nameOverride: ""
+fullnameOverride: ""
+
+# -- serviceAccount --
+# Tác dụng: Cấu hình cho Service Account.
+# Truyền vào: Không được sử dụng trực tiếp vì bạn đã có file rbac.yaml định nghĩa Service Account 'dev-user' cố định.
+serviceAccount:
+  # Tác dụng: 'true' để Helm tự động tạo một Service Account cho chart.
+  create: true
+  # Tác dụng: 'true' để tự động mount token của Service Account vào Pod.
+  automount: true
+  # Tác dụng: Thêm các annotations tùy chỉnh vào Service Account.
+  annotations: {}
+  # Tác dụng: Tên của Service Account sẽ được sử dụng. Nếu để trống và 'create' là true, một tên sẽ được tự động tạo ra.
+  name: ""
+
+# This is for setting Kubernetes Annotations to a Pod.
+# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+podAnnotations: {}
+# This is for setting Kubernetes Labels to a Pod.
+# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+podLabels: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# -- service --
+# Tác dụng: Cấu hình cho Service mặc định.
+# Truyền vào: Không được sử dụng trực tiếp bởi backend hoặc mysql vì chúng có file Service riêng.
+service:
+  # Tác dụng: Thiết lập loại Service (ví dụ: ClusterIP, NodePort, LoadBalancer).
+  type: ClusterIP
+  port: 80
+
+# This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
+# Cấu hình cho Ingress
+# Tác dụng: Cấu hình toàn bộ tài nguyên Ingress để định tuyến traffic từ bên ngoài vào các service.
+# Truyền vào: /home/tuananh/phoneshop-gitops/phoneshop-chart/templates/ingress.yaml (sau khi đã được "Helm hóa" hoàn toàn).
+ingress:
+  # Bật/tắt việc tạo tài nguyên Ingress
+  enabled: true
+  # Tên của IngressClass (ví dụ: "nginx", "traefik")
+  className: "nginx"
+  # Các annotations cho Ingress, hữu ích cho việc cấu hình cert-manager, rewrite-target...
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  # Tác dụng: Định nghĩa danh sách các tên miền (host) và các quy tắc định tuyến (path) cho từng tên miền.
+  hosts:
+    - host: phoneshop.local
+      paths:
+        - path: /login
+          pathType: Prefix
+          serviceName: ttnt-backend
+          servicePort: 3000
+        - path: /api
+          pathType: Prefix
+          serviceName: ttnt-backend
+          servicePort: 3000
+        - path: /
+          pathType: Prefix
+          serviceName: ttnt-frontend # Giả định bạn sẽ có service này
+          servicePort: 80
+  # Tác dụng: Cấu hình TLS (HTTPS) cho Ingress, trỏ đến Secret chứa chứng chỉ.
+  tls:
+   - secretName: phoneshop-tls-secret
+     hosts:
+       - phoneshop.local
+
+# -- Expose the service via gateway-api HTTPRoute
+# Requires Gateway API resources and suitable controller installed within the cluster
+# (see: https://gateway-api.sigs.k8s.io/guides/)
+# -- httpRoute --
+# Tác dụng: Cấu hình cho Gateway API (một giải pháp thay thế mới hơn cho Ingress).
+# Truyền vào: Không có file nào sử dụng vì nó đang bị tắt (enabled: false).
+httpRoute:
+  # HTTPRoute enabled.
+  enabled: false
+  # HTTPRoute annotations.
+  annotations: {}
+  # Which Gateways this Route is attached to.
+  parentRefs:
+  - name: gateway
+    sectionName: http
+    # namespace: default
+  # Hostnames matching HTTP header.
+  hostnames:
+  - chart-example.local
+  # List of rules and filters applied.
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /headers
+  #   filters:
+  #   - type: RequestHeaderModifier
+  #     requestHeaderModifier:
+  #       set:
+  #       - name: My-Overwrite-Header
+  #         value: this-is-the-only-value
+  #       remove:
+  #       - User-Agent
+  # - matches:
+  #   - path:
+  #       type: PathPrefix
+  #       value: /echo
+  #     headers:
+  #     - name: version
+  #       value: v2
+
+# -- resources --
+# Tác dụng: Cấu hình tài nguyên (CPU/Memory) mặc định cho Pod.
+# Truyền vào: Không được sử dụng vì 'backend' có cấu hình resources riêng bên dưới.
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+# This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+# -- livenessProbe & readinessProbe --
+# Tác dụng: Cấu hình probe mặc định.
+# Truyền vào: Không được sử dụng vì 'backend' có cấu hình probe riêng bên dưới.
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+
+# This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
+# -- autoscaling --
+# Tác dụng: Cấu hình cho HorizontalPodAutoscaler (HPA) của backend.
+# Truyền vào: /home/tuananh/phoneshop-gitops/phoneshop-chart/templates/backend-hpa.yaml
+autoscaling:
+  # Tác dụng: Bật/tắt việc tạo tài nguyên HPA.
+  enabled: false
+  # Tác dụng: Thiết lập số lượng Pod tối thiểu và tối đa.
+  minReplicas: 1
+  maxReplicas: 100
+  # Tác dụng: Thiết lập ngưỡng sử dụng CPU mục tiêu để kích hoạt co/giãn.
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+# Cấu hình để chỉ định Pod sẽ chạy trên các Node có label nhất định.
+nodeSelector: {}
+
+# Cấu hình để Pod có thể "chịu đựng" các taint của Node, cho phép nó được lên lịch trên các Node đó.
+tolerations: []
+
+# Cấu hình để kiểm soát cách Pod được lên lịch dựa trên các Pod khác (ví dụ: chạy cùng Node, khác Node).
+affinity: {}
+
+# -- mysql --
+# Tác dụng: Cấu hình cho các tài nguyên của MySQL.
+# Truyền vào: /home/tuananh/phoneshop-gitops/phoneshop-chart/templates/mysql-statefulset.yaml và /home/tuananh/phoneshop-gitops/phoneshop-chart/templates/secret.yaml
+mysql:
+  # Tác dụng: Cấu hình image cho container MySQL và sidecar backup.
+  image:
+    repository: mysql
+    tag: "8.0"
+    pullPolicy: IfNotPresent
+  # Tác dụng: Cấu hình lưu trữ bền vững (Persistent Volume).
+  persistence:
+    # Tác dụng: Thiết lập dung lượng lưu trữ cho database.
+    size: 1Gi
+  # Mật khẩu cho người dùng root của MySQL. KHÔNG NÊN hardcode mật khẩu thật ở đây.
+  # Nên cung cấp qua --set-string mysql.rootPassword=<your-secret-password> khi cài đặt Helm.
+  rootPassword: ""
+
+# Cấu hình cho Backend
+# -- backend --
+# Tác dụng: Cấu hình cho các tài nguyên của Backend.
+# Truyền vào: /home/tuananh/phoneshop-gitops/phoneshop-chart/templates/backend-deployment.yaml
+backend:
+  # Tác dụng: Đặt tên cho Deployment, label, selector và container của backend.
+  name: ttnt-backend
+  # Tác dụng: Cấu hình image cho container backend.
+  image:
+    repository: tuananh00/ttnt-backend
+    tag: latest
+    pullPolicy: Always
+  # Tác dụng: Cấu hình cổng cho Service và container của backend.
+  service:
+    port: 3000
+  # Tác dụng: Cấu hình tài nguyên (CPU/Memory) cho Pod backend.
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+  # Tác dụng: Cấu hình đường dẫn cho các health check probe (liveness và readiness).
+  livenessProbe:
+    path: /healthz/live
+  readinessProbe:
+    path: /healthz/ready
+
+# -- rbac --
+# Tác dụng: Cấu hình cho RBAC (Role-Based Access Control).
+# Truyền vào: /home/tuananh/phoneshop-gitops/phoneshop-chart/templates/rbac.yaml
+rbac:
+  # Tác dụng: 'true' để tạo ServiceAccount, Role, và RoleBinding được định nghĩa trong rbac.yaml.
+  create: true

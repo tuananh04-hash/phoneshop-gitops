@@ -1,0 +1,23 @@
+{{/* Toàn bộ tài nguyên HPA này chỉ được tạo khi giá trị .Values.autoscaling.enabled trong file values.yaml là true. */}}
+{{- if .Values.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ttnt-backend-hpa
+spec:
+  # scaleTargetRef chỉ định Deployment mục tiêu mà HPA sẽ quản lý.
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ttnt-backend # Trỏ đến Deployment của backend
+  minReplicas: {{ .Values.autoscaling.minReplicas }} # Lấy số Pod tối thiểu từ file values.yaml
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }} # Lấy số Pod tối đa từ file values.yaml
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          # Lấy % CPU mục tiêu từ file values.yaml. HPA sẽ tăng/giảm số Pod để duy trì mức CPU này.
+          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }} 
+{{- end }}

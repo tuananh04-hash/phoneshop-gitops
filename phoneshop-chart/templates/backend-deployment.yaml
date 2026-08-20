@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+# Định nghĩa một Kubernetes Deployment để quản lý các Pod của ứng dụng backend.
+metadata:
+  # Tác dụng: Đặt tên cho tài nguyên Deployment.
+  # Nhận dữ liệu từ: .Values.backend.name trong file values.yaml.
+  name: {{ .Values.backend.name }} 
+spec:
+  # Tác dụng: Quyết định số lượng Pod sẽ chạy.
+  # Nhận dữ liệu từ: .Values.autoscaling.enabled và .Values.replicaCount trong file values.yaml.
+  {{- if not .Values.autoscaling.enabled }}
+  # Nếu HPA (tự động co giãn) bị tắt, số lượng Pod sẽ được lấy từ .Values.replicaCount.
+  replicas: {{ .Values.replicaCount }} 
+  {{- else }}
+  # Ngược lại, nếu HPA được bật, số lượng Pod ban đầu sẽ là 1.
+  # Sau đó, HPA sẽ tự động điều chỉnh số lượng này dựa trên tải.
+  replicas: 1 # Khi HPA được bật, replicas sẽ do HPA quản lý
+  {{- end }}
+  selector:
+    matchLabels:
+      # Tác dụng: Giúp Deployment nhận diện và quản lý các Pod có label này.
+      # Nhận dữ liệu từ: .Values.backend.name trong file values.yaml.
+      app: {{ .Values.backend.name }} 
+  template:
+    metadata:
+      labels:
+        # Tác dụng: Gán label cho các Pod được tạo ra. Label này phải khớp với 'selector' ở trên.
+        # Nhận dữ liệu từ: .Values.backend.name trong file values.yaml.
+        app: {{ .Values.backend.name }} 
+    spec:
+      containers:
+        # Định nghĩa container chính cho ứng dụng backend.
+        - name: {{ .Values.backend.name }} # Đặt tên cho container.
+          # Tác dụng: Chỉ định Docker image sẽ được sử dụng cho container.
+          # Nhận dữ liệu từ: .Values.backend.image.repository và .Values.backend.image.tag.
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}" 
+          # Tác dụng: Thiết lập chính sách kéo image (ví dụ: Always - luôn kéo, IfNotPresent - chỉ kéo nếu chưa có).
+          # Nhận dữ liệu từ: .Values.backend.image.pullPolicy.
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }} 
+          ports:
+            # Tác dụng: Mở một cổng trên container để ứng dụng có thể nhận traffic.
+            # Nhận dữ liệu từ: .Values.backend.service.port.
+            - containerPort: {{ .Values.backend.service.port }} 
+          envFrom:
+            - configMapRef:
+                # Tác dụng: Tải tất cả các cặp key-value từ ConfigMap có tên 'backend-configmap' vào làm biến môi trường cho container.
+                # Nhận dữ liệu từ: Giá trị này được hard-code (cố định) trong template.
+                name: backend-configmap 
+          env:
+            - name: DB_PASSWORD
+              # Tác dụng: Lấy mật khẩu từ một Secret và gán vào biến môi trường DB_PASSWORD.
+              # Nhận dữ liệu từ: Tên Secret 'mysql-secret' được hard-code trong template.
+              valueFrom: 
+                secretKeyRef:
+                  name: mysql-secret # Tên của Secret chứa mật khẩu MySQL
+                  key: MYSQL_ROOT_PASSWORD # Key chứa giá trị mật khẩu trong Secret
+          # Tác dụng: Giới hạn và yêu cầu tài nguyên (CPU/Memory) cho container.
+          # Nhận dữ liệu từ: Toàn bộ khối .Values.backend.resources trong file values.yaml.
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }} 
+          # Bổ sung Liveness Probe: Kiểm tra tiến trình Node.js có đang chạy không
+          # Liveness Probe kiểm tra xem ứng dụng có còn sống hay không. Nếu probe thất bại, Kubernetes sẽ khởi động lại container.
+          livenessProbe:
+            httpGet:
+              # Tác dụng: Đường dẫn để kiểm tra xem ứng dụng có còn "sống" hay không.
+              # Nhận dữ liệu từ: .Values.backend.livenessProbe.path.
+              path: {{ .Values.backend.livenessProbe.path }} 
+              # Tác dụng: Cổng để thực hiện kiểm tra.
+              # Nhận dữ liệu từ: .Values.backend.service.port.
+              port: {{ .Values.backend.service.port }} 
+            initialDelaySeconds: 5 # Chờ 5 giây sau khi container khởi động mới bắt đầu kiểm tra
+            periodSeconds: 10
+          # Bổ sung Readiness Probe: Kiểm tra ứng dụng đã sẵn sàng nhận traffic chưa (đã kết nối DB)
+          # Readiness Probe kiểm tra xem ứng dụng đã sẵn sàng nhận traffic hay chưa. Nếu probe thất bại, Pod sẽ không nhận traffic từ Service.
+          readinessProbe:
+            httpGet:
+              # Tác dụng: Đường dẫn để kiểm tra xem ứng dụng đã sẵn sàng nhận traffic hay chưa.
+              # Nhận dữ liệu từ: .Values.backend.readinessProbe.path.
+              path: {{ .Values.backend.readinessProbe.path }} 
+              # Tác dụng: Cổng để thực hiện kiểm tra.
+              # Nhận dữ liệu từ: .Values.backend.service.port.
+              port: {{ .Values.backend.service.port }} 
+            initialDelaySeconds: 5 # Chờ 5 giây sau khi container khởi động mới bắt đầu kiểm tra
+            periodSeconds: 5

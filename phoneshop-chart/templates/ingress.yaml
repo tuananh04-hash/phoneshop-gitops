@@ -1,0 +1,44 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+# Định nghĩa một Kubernetes Ingress để quản lý truy cập bên ngoài vào các dịch vụ trong cluster.
+# Ingress cung cấp định tuyến HTTP/HTTPS từ bên ngoài đến các dịch vụ bên trong.
+metadata:
+  name: phoneshop-ingress
+spec:
+  ingressClassName: nginx # Chỉ định Ingress Controller sẽ xử lý Ingress này (ví dụ: Nginx Ingress Controller).
+  # Bổ sung khối TLS cho Lab 8
+  tls:
+  # Cấu hình TLS để bật HTTPS cho tên miền phoneshop.local.
+  - hosts:
+      - phoneshop.local
+    secretName: phoneshop-tls-secret # Tên Secret chứa chứng chỉ (từ Bước 2)
+    
+  rules:
+  - host: phoneshop.local
+    http:
+      # Định nghĩa các quy tắc định tuyến dựa trên đường dẫn (path).
+      paths:
+      # Luồng 1: Giữ nguyên định tuyến xác thực vào Backend
+      - path: /locgin
+        pathType: Prefix # Định tuyến các đường dẫn bắt đầu bằng /locgin.
+        backend:
+          service:
+            name: ttnt-backend
+            port:
+              number: 3000
+      # Luồng 2: Chuyển hướng toàn bộ các truy xuất dữ liệu (sản phẩm, danh mục...) vào Backend
+      - path: /api
+        pathType: Prefix # Định tuyến các đường dẫn bắt đầu bằng /api.
+        backend:
+          service:
+            name: ttnt-backend   
+            port:
+              number: 3000
+      # Luồng 3: Mọi truy cập còn lại đẩy về Frontend hiển thị web
+      - path: /
+        pathType: Prefix # Định tuyến tất cả các đường dẫn còn lại (mặc định).
+        backend:
+          service:
+            name: ttnt-frontend  
+            port:
+              number: 80
