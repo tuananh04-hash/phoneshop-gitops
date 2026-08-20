@@ -53,7 +53,7 @@ spec:
               valueFrom: 
                 secretKeyRef:
                   name: mysql-secret # Tên của Secret chứa mật khẩu MySQL
-                  key: MYSQL_ROOT_PASSWORD # Key chứa giá trị mật khẩu trong Secret
+                  key: ROOT_PASSWORD # Sửa lại cho đúng với key trong secret.yaml
           # Tác dụng: Giới hạn và yêu cầu tài nguyên (CPU/Memory) cho container.
           # Nhận dữ liệu từ: Toàn bộ khối .Values.backend.resources trong file values.yaml.
           resources:

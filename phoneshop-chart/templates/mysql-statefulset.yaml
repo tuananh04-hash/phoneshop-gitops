@@ -71,7 +71,7 @@ spec:
               valueFrom: # Lấy mật khẩu từ Secret
                 secretKeyRef:
                   name: mysql-secret
-                  key: MYSQL_ROOT_PASSWORD
+                  key: ROOT_PASSWORD # Sửa lại cho đúng với key trong secret.yaml
           command:
             - /bin/sh
             - -c
