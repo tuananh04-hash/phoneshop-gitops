@@ -7,10 +7,11 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/tuananh04-hash/phoneshop-gitops.git'
-    path: k8s
+    path: phoneshop-chart # Trỏ đúng vào thư mục chứa Helm chart
     targetRevision: HEAD
-    directory:
-      recurse: true
+    helm: # Khai báo rõ đây là một ứng dụng dùng Helm
+      valueFiles:
+        - values.yaml # Báo cho Argo CD nạp biến từ file này
   destination:
     server: 'https://kubernetes.default.svc'
     namespace: default
