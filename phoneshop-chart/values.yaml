@@ -81,3 +81,26 @@ backend:
 # Phân quyền bảo mật RBAC (Role-Based Access Control)
 rbac:
   create: true # Cho phép tự động tạo ServiceAccount và cấp quyền truy cập
+
+# -----------------------------------
+# KHỐI CẤU HÌNH DÀNH RIÊNG CHO FRONTEND
+# -----------------------------------
+frontend:
+  enabled: true # Bật/tắt toàn bộ tài nguyên frontend
+  name: ttnt-frontend
+  replicaCount: 1
+  image:
+    repository: nginx # Thay bằng image frontend của bạn, ví dụ: tuananh00/ttnt-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+  resources:
+    # Mức tài nguyên tối thiểu K8s phải cấp để Pod chạy
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    # Mức tài nguyên tối đa Pod được phép ngốn
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
